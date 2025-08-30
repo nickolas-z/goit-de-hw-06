@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: mypy-local
+        name: mypy
+        entry: python -m mypy --config-file mypy.ini --explicit-package-bases scripts
+        language: system
+        types: [python]
+        pass_filenames: false

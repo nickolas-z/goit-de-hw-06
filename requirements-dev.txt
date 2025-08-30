@@ -1,0 +1,4 @@
+mypy
+# add types packages as needed, e.g.
+# types-requests
+# types-python-dateutil

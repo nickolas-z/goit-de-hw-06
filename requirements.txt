@@ -1,0 +1,5 @@
+jupyterlab
+black
+pytest
+kafka-python
+rich
