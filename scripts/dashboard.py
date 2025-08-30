@@ -12,6 +12,7 @@ setup_logging(suppress_console=True)
 from sensor_producer import run_producer
 from sensor_processor import run_processor
 from alert_consumer import run_alert_consumer
+from spark_streaming import run_streaming
 from rich.live import Live
 from rich.layout import Layout
 from rich.panel import Panel
@@ -46,6 +47,7 @@ def layout_template() -> Layout:
         Layout(name="sensors"),
         Layout(name="temp"),
         Layout(name="humidity"),
+        Layout(name="spark_alerts", ratio=2),
     )
     return layout
 
@@ -53,11 +55,17 @@ def make_table(title: str, rows: Deque[Dict[str, Any]], columns: Iterable[str], 
     tbl = Table(title=title, box=box.SIMPLE_HEAVY, expand=True, show_edge=True)
     for col in columns:
         if col == 'ts':
-            tbl.add_column(col, overflow="fold", no_wrap=True, justify="left", width=19)
-        elif col in ('temperature','humidity','value'):
+            tbl.add_column(col, overflow="fold", no_wrap=False, justify="left", width=19)
+        elif col in ('temperature','humidity','value','t_avg','h_avg'):
             tbl.add_column(col, overflow="fold", no_wrap=True, justify="right", width=8)
+        elif col == 'window':
+            tbl.add_column(col, overflow="fold", no_wrap=False, justify="left", width=25)
+        elif col == 'message':
+            tbl.add_column(col, overflow="fold", no_wrap=False, justify="left", min_width=30, max_width=50)
+        elif col == 'code':
+            tbl.add_column(col, overflow="fold", no_wrap=True, justify="center", width=6)
         else:
-            tbl.add_column(col, overflow="fold", no_wrap=True, justify="left")
+            tbl.add_column(col, overflow="fold", no_wrap=False, justify="left")
     # render newest first
     for item in reversed(list(rows)):
         row_cells = []
@@ -69,6 +77,15 @@ def make_table(title: str, rows: Deque[Dict[str, Any]], columns: Iterable[str], 
                     val = val.replace('T', ' ')[:19]
                 except Exception:
                     pass
+            elif c == 'window' and isinstance(val, dict):
+                try:
+                    start = val.get('start', '').replace('T', ' ')[:19]
+                    end = val.get('end', '').replace('T', ' ')[:19]
+                    val = f"{start} → {end}"
+                except Exception:
+                    val = str(val)
+            elif c in ('t_avg', 'h_avg') and isinstance(val, (int, float)):
+                val = f"{float(val):.2f}"
             txt = Text(str(val))
             if highlight_map:
                 for fn, style in highlight_map:
@@ -85,20 +102,24 @@ def dashboard(prefix: str, max_rows: int) -> None:
     sensors_topic = f"{prefix}_building_sensors"
     temp_topic = f"{prefix}_temperature_alerts"
     hum_topic = f"{prefix}_humidity_alerts"
+    alerts_topic = f"{prefix}_alerts"  # Spark Streaming windowed alerts
 
     raw_rows: Deque[Dict[str, Any]] = deque(maxlen=max_rows)
     temp_rows: Deque[Dict[str, Any]] = deque(maxlen=max_rows)
     hum_rows: Deque[Dict[str, Any]] = deque(maxlen=max_rows)
+    spark_alerts_rows: Deque[Dict[str, Any]] = deque(maxlen=max_rows)
 
     counts = {
         "raw": 0,
         "temp_alerts": 0,
-        "hum_alerts": 0
+        "hum_alerts": 0,
+        "spark_alerts": 0
     }
     sensors_set: Set[int] = set()
 
     cons_raw: Any = build_consumer([sensors_topic])
     cons_alerts: Any = build_consumer([temp_topic, hum_topic])
+    cons_spark_alerts: Any = build_consumer([alerts_topic])
 
     def consume_raw() -> None:
         while not _stop.is_set():
@@ -142,10 +163,30 @@ def dashboard(prefix: str, max_rows: int) -> None:
             except Exception:
                 time.sleep(0.5)
 
+    def consume_spark_alerts() -> None:
+        while not _stop.is_set():
+            try:
+                for msg in cons_spark_alerts:
+                    if _stop.is_set(): break
+                    data = msg.value
+                    counts["spark_alerts"] += 1
+                    spark_alerts_rows.append({
+                        "window": data.get("window"),
+                        "t_avg": data.get("t_avg"),
+                        "h_avg": data.get("h_avg"),
+                        "code": data.get("code"),
+                        "message": data.get("message"),
+                        "timestamp": data.get("timestamp"),
+                    })
+            except Exception:
+                time.sleep(0.5)
+
     t1 = threading.Thread(target=consume_raw, daemon=True)
     t2 = threading.Thread(target=consume_alerts, daemon=True)
+    t3 = threading.Thread(target=consume_spark_alerts, daemon=True)
     t1.start()
     t2.start()
+    t3.start()
 
     lay = layout_template()
 
@@ -183,9 +224,10 @@ def dashboard(prefix: str, max_rows: int) -> None:
             (f"RAW={counts['raw']}  ", "cyan bold"),
             (f"T={counts['temp_alerts']}  ", "red bold"),
             (f"H={counts['hum_alerts']}  ", "magenta bold"),
+            (f"SPARK={counts['spark_alerts']}  ", "yellow bold"),
             (f"SENSORS={len(sensors_set)}", "green bold"),
         )
-        lay["header"].update(Panel(header_text, title="Kafka Dashboard", border_style="blue"))
+        lay["header"].update(Panel(header_text, title="Kafka-Spark Dashboard", border_style="blue"))
 
         lay["sensors"].update(
             make_table(
@@ -214,6 +256,17 @@ def dashboard(prefix: str, max_rows: int) -> None:
                 highlight_map=[(lambda c,v,row: True, "magenta")]
             )
         )
+        lay["spark_alerts"].update(
+            make_table(
+                "Spark Streaming Alerts",
+                spark_alerts_rows,
+                ["window","t_avg","h_avg","code","message"],
+                highlight_map=[
+                    (lambda c,v,row: c in ("t_avg", "h_avg"), "bold yellow"),
+                    (lambda c,v,row: c=="code", "bold green"),
+                ]
+            )
+        )
         return lay
 
     with Live(render(), refresh_per_second=4, screen=False):
@@ -223,24 +276,29 @@ def dashboard(prefix: str, max_rows: int) -> None:
 
     cons_raw.close()
     cons_alerts.close()
+    cons_spark_alerts.close()
 
 def main() -> None:
     """
-    Rich dashboard:
-        - Left column: last N (default 15) raw sensor readings
-        - Center: temperature alerts
-        - Right: humidity alerts
+    Rich dashboard with Spark Streaming alerts demo:
+        - Column 1: last N (default 15) raw sensor readings
+        - Column 2: temperature alerts
+        - Column 3: humidity alerts
+        - Column 4: Spark Streaming windowed alerts
         - Header: counters + unique sensors
 
     Run:
-        python scripts/dashboard.py --prefix myname
+        python scripts/dashboard.py --prefix myname --start-producer --start-processor --start-spark-streaming --producer-interval 0.5
+    
     """    
     ap = argparse.ArgumentParser()
     ap.add_argument("--prefix", required=True)
     ap.add_argument("--max-rows", type=int, default=15)
+    ap.add_argument("--producer-interval", type=float, default=2.0, help="Producer interval in seconds")
     ap.add_argument("--start-producer", action="store_true", help="Start a local producer thread")
     ap.add_argument("--start-processor", action="store_true", help="Start a local processor thread")
     ap.add_argument("--start-alerts", action="store_true", help="Start a local alert consumer thread")
+    ap.add_argument("--start-spark-streaming", action="store_true", help="Start Spark Streaming processor")
     args = ap.parse_args()
 
     def stop_sig(*_: Any) -> None:
@@ -250,15 +308,19 @@ def main() -> None:
 
     threads = []
     if args.start_producer:
-        t = threading.Thread(target=run_producer, args=(args.prefix,), kwargs={"stop_event": _stop}, daemon=True)
+        t = threading.Thread(target=run_producer, args=(args.prefix,), kwargs={"stop_event": _stop, "interval": args.producer_interval}, daemon=True)
         threads.append(t)
         t.start()
     if args.start_processor:
-        t = threading.Thread(target=run_processor, args=(args.prefix,), kwargs={"stop_event": _stop}, daemon=True)
+        t = threading.Thread(target=run_processor, args=(args.prefix,), kwargs={"temp_threshold": 40.0, "hum_low": 20.0, "hum_high": 80.0, "stop_event": _stop}, daemon=True)
         threads.append(t)
         t.start()
     if args.start_alerts:
         t = threading.Thread(target=run_alert_consumer, args=(args.prefix,), kwargs={"stop_event": _stop}, daemon=True)
+        threads.append(t)
+        t.start()
+    if args.start_spark_streaming:
+        t = threading.Thread(target=run_streaming, args=(args.prefix, _stop), kwargs={"checkpoint_dir": None, "starting_offsets": "earliest"}, daemon=True)
         threads.append(t)
         t.start()
 

@@ -18,6 +18,7 @@ def main() -> None:
         f"{prefix}_building_sensors",
         f"{prefix}_temperature_alerts",
         f"{prefix}_humidity_alerts",
+        f"{prefix}_alerts",  # windowed alerts produced by Spark Streaming
     ]
     admin = KafkaAdminClient(
         bootstrap_servers=kafka_config["bootstrap_servers"],

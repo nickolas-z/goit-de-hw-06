@@ -1,0 +1,18 @@
+2025-08-30 19:32:46,825 [33mWARNING[0m Sending username and password in the clear
+2025-08-30 19:32:46,827 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=bootstrap-0 host=77.81.230.104:9092 <connecting> [IPv4 ('77.81.230.104', 9092)]>: connecting to 77.81.230.104:9092 [('77.81.230.104', 9092) IPv4]
+2025-08-30 19:32:46,956 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=bootstrap-0 host=77.81.230.104:9092 <checking_api_versions_recv> [IPv4 ('77.81.230.104', 9092)]>: Broker version identified as 2.6
+2025-08-30 19:32:47,042 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=bootstrap-0 host=77.81.230.104:9092 <authenticating> [IPv4 ('77.81.230.104', 9092)]>: Authenticated as admin via SASL / Plain
+2025-08-30 19:32:47,043 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=bootstrap-0 host=77.81.230.104:9092 <connected> [IPv4 ('77.81.230.104', 9092)]>: Connection complete.
+2025-08-30 19:32:47,245 [33mWARNING[0m Sending username and password in the clear
+2025-08-30 19:32:47,245 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=1001 host=77.81.230.104:9092 <connecting> [IPv4 ('77.81.230.104', 9092)]>: connecting to 77.81.230.104:9092 [('77.81.230.104', 9092) IPv4]
+2025-08-30 19:32:47,366 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=1001 host=77.81.230.104:9092 <authenticating> [IPv4 ('77.81.230.104', 9092)]>: Authenticated as admin via SASL / Plain
+2025-08-30 19:32:47,366 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=1001 host=77.81.230.104:9092 <connected> [IPv4 ('77.81.230.104', 9092)]>: Connection complete.
+2025-08-30 19:32:47,366 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=bootstrap-0 host=77.81.230.104:9092 <connected> [IPv4 ('77.81.230.104', 9092)]>: Closing connection. 
+2025-08-30 19:32:47,367 [33mWARNING[0m Sending username and password in the clear
+2025-08-30 19:32:47,533 [32mINFO[0m Exists: demo_building_sensors
+2025-08-30 19:32:47,533 [32mINFO[0m Exists: demo_temperature_alerts
+2025-08-30 19:32:47,533 [32mINFO[0m Exists: demo_humidity_alerts
+2025-08-30 19:32:47,533 [32mINFO[0m Exists: demo_alerts
+2025-08-30 19:32:47,533 [32mINFO[0m Nothing to create.
+2025-08-30 19:32:47,534 [32mINFO[0m <BrokerConnection client_id=kafka-python-2.2.15, node_id=1001 host=77.81.230.104:9092 <connected> [IPv4 ('77.81.230.104', 9092)]>: Closing connection. 
+2025-08-30 19:32:47,534 [33mWARNING[0m Sending username and password in the clear

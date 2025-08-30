@@ -1,3 +1,5 @@
+import csv
+from pathlib import Path
 from typing import Any, Optional, Iterable
 import argparse, json, signal, threading, time, logging
 from kafka import KafkaConsumer, KafkaProducer
@@ -7,6 +9,38 @@ _stop = threading.Event()
 
 from logging_config import setup_logging
 logger = logging.getLogger(__name__)
+
+def read_alert_conditions_csv() -> list[dict]:
+    """
+    Read alerts_conditions.csv and return list of dicts with parsed numeric bounds.
+    CSV expected columns: id,humidity_min,humidity_max,temperature_min,temperature_max,code,message
+    -999 indicates unused bound.
+    """
+    project_root = Path(__file__).resolve().parents[1]
+    csv_path = project_root / "data" / "alerts_conditions.csv"
+    conditions = []
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for r in reader:
+                try:
+                    conditions.append({
+                        "cond_id": int(r.get("id") or 0),
+                        "humidity_min": float(r.get("humidity_min") or -999),
+                        "humidity_max": float(r.get("humidity_max") or -999),
+                        "temperature_min": float(r.get("temperature_min") or -999),
+                        "temperature_max": float(r.get("temperature_max") or -999),
+                        "code": str(r.get("code") or ""),
+                        "message": str(r.get("message") or ""),
+                    })
+                except Exception:
+                    # skip malformed row but log
+                    logger.exception("Malformed condition row: %s", r)
+    except FileNotFoundError:
+        logger.warning("alerts_conditions.csv not found at %s, falling back to runtime thresholds", csv_path)
+    except Exception:
+        logger.exception("Failed to read alert conditions CSV")
+    return conditions
 
 def build_consumer(topic: str) -> Any:
     return KafkaConsumer(
@@ -53,6 +87,19 @@ def run_processor(prefix: str, temp_threshold: float = 40.0, hum_low: float = 20
 
     logger.info("Processor listening on %s", topic_in)
 
+    conditions = read_alert_conditions_csv()
+    if not conditions:
+        conditions = [{
+            "cond_id": 0,
+            "humidity_min": hum_low,
+            "humidity_max": hum_high,
+            "temperature_min": temp_threshold,
+            "temperature_max": 9999.0
+            ,
+            "code": "manual",
+            "message": "Manual threshold alert"
+        }]
+
     try:
         while not stop.is_set():
             try:
@@ -64,29 +111,39 @@ def run_processor(prefix: str, temp_threshold: float = 40.0, hum_low: float = 20
                     h = data.get("humidity")
                     sid = data.get("sensor_id")
                     ts = data.get("ts")
-                    if t is not None and t > temp_threshold:
-                        alert = {
-                            "sensor_id": sid,
-                            "ts": ts,
-                            "metric": "temperature",
-                            "value": t,
-                            "threshold": f">{temp_threshold}",
-                            "message": "Temperature threshold exceeded",
-                        }
-                        prod.send(topic_temp, value=alert)
-                        logger.info("ALERT TEMP %s", alert)
-                    if h is not None and (h > hum_high or h < hum_low):
-                        cond = f">{hum_high}" if h > hum_high else f"<{hum_low}"
-                        alert = {
-                            "sensor_id": sid,
-                            "ts": ts,
-                            "metric": "humidity",
-                            "value": h,
-                            "threshold": cond,
-                            "message": "Humidity threshold breached",
-                        }
-                        prod.send(topic_hum, value=alert)
-                        logger.info("ALERT HUM %s", alert)
+                    for cond in conditions:
+                        # temperature: only consider when both min/max != -999 OR when at least one bound set
+                        tmin = cond["temperature_min"]
+                        tmax = cond["temperature_max"]
+                        hmin = cond["humidity_min"]
+                        hmax = cond["humidity_max"]
+
+                        if t is not None and tmin != -999 and tmax != -999:
+                            if t < tmin or t > tmax:
+                                alert = {
+                                    "sensor_id": sid,
+                                    "ts": ts,
+                                    "metric": "temperature",
+                                    "value": t,
+                                    "threshold": f"{tmin}-{tmax}",
+                                    "code": cond.get("code"),
+                                    "message": cond.get("message"),
+                                }
+                                prod.send(topic_temp, value=alert)
+                                logger.info("ALERT TEMP %s", alert)
+                        if h is not None and hmin != -999 and hmax != -999:
+                            if h < hmin or h > hmax:
+                                alert = {
+                                    "sensor_id": sid,
+                                    "ts": ts,
+                                    "metric": "humidity",
+                                    "value": h,
+                                    "threshold": f"{hmin}-{hmax}",
+                                    "code": cond.get("code"),
+                                    "message": cond.get("message"),
+                                }
+                                prod.send(topic_hum, value=alert)
+                                logger.info("ALERT HUM %s", alert)
             except Exception:
                 time.sleep(0.5)
     finally:

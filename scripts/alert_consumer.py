@@ -32,6 +32,7 @@ def run_alert_consumer(prefix: str, stop_event: threading.Event | None = None) -
     topics = [
         f"{prefix}_temperature_alerts",
         f"{prefix}_humidity_alerts",
+        f"{prefix}_alerts",  # windowed alerts from Spark Streaming
     ]
     cons = build_consumer(topics)
     logger.info("Alert consumer listening on: %s", ", ".join(topics))

@@ -3,3 +3,4 @@ black
 pytest
 kafka-python
 rich
+pyspark

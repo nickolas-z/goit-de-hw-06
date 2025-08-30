@@ -33,7 +33,7 @@ ENV PYSPARK_PYTHON=python3
 RUN groupadd -g ${USER_GID} spark || true && \
     useradd -m -u ${USER_UID} -g ${USER_GID} spark || true
 
-RUN mkdir -p ${APP_DIR}
+RUN mkdir -p ${APP_DIR} && chown -R ${USER_UID}:${USER_GID} ${APP_DIR}
 WORKDIR ${APP_DIR}
 
 COPY requirements.txt requirements.txt

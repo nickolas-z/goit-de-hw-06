@@ -48,7 +48,7 @@
 python scripts/create_topic.py demo
 ```
 - [create_topic.py](./scripts/create_topic.py)
-- [app-20250816-170100.log](./out/app-20250816-170100.log)
+- [app-20250830-130644.log](./out/app-20250830-193246.log)
 
 ![](./assets/create_topics.png)
 
@@ -58,7 +58,7 @@ python scripts/create_topic.py demo
 python scripts/sensor_producer.py --prefix demo --interval 2.0
 ```
 - [sensor_producer.py](./scripts/sensor_producer.py)
-- [app-20250816-170356.log](./out/app-20250816-170356.log)
+- [app-20250830-193414.log](./out/app-20250830-193414.log)
 ![](./assets/sensor_producer.png)
 
 3. Обробка (reads building_sensors and emits alerts):
@@ -67,7 +67,7 @@ python scripts/sensor_producer.py --prefix demo --interval 2.0
 python scripts/sensor_processor.py --prefix demo
 ```
 - [sensor_processor.py](./scripts/sensor_processor.py)
-- [app-20250816-170555.log](./out/app-20250816-170555.log)
+- [app-20250830-193540.log](./out/app-20250830-193540.log)
 ![](./assets/sensor_processor.png)
 
 4. Відправка фільрованих даних (prints alerts):
@@ -76,16 +76,26 @@ python scripts/sensor_processor.py --prefix demo
 python scripts/alert_consumer.py --prefix demo
 ```
 - [alert_consumer.py](./scripts/alert_consumer.py)
-- [app-20250816-171011.log](./out/app-20250816-171011.log)
+- [app-20250830-193712.log](./out/app-20250830-193712.log)
 ![](./assets/alert_consumer.png)
 
-5. Запуск dashboard (демонстрація роботи системи):
+5. Spark Streaming
 
 ```bash
-python scripts/dashboard.py --prefix demo --start-producer --start-processor --start-alerts
+python scripts/spark_streaming.py --prefix demo
+```
+- [spark_streaming.py](./scripts/spark_streaming.py)
+- [app-20250830-193849.log](./out/app-20250830-193849.log)
+![](./assets/spark_streaming.png)
+
+
+6. Запуск dashboard (демонстрація роботи системи):
+
+```bash
+python scripts/dashboard.py --prefix demo --start-producer --start-processor --start-alerts --start-spark-streaming
 ```
 - [dashboard.py](./scripts/dashboard.py)
-- [app-20250816-171227.log](./out/app-20250816-171227.log)
+- [app-20250830-192725.log](./out/app-20250830-192725.log)
 ![](./assets/dashboard.png)
 
 ### Вихідний код

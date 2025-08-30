@@ -14,16 +14,23 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-
                 "ms-toolsai.jupyter",
                 "ms-azuretools.vscode-docker",
                 "GitHub.copilot",
                 "GitHub.copilot-chat"
             ],
             "settings": {
-            "python.defaultInterpreterPath": "/usr/local/bin/python",
-            "python.analysis.autoImportCompletions": true,
-            "terminal.integrated.defaultProfile.linux": "bash"
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.analysis.autoImportCompletions": true,
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "editor.inlineSuggest.enabled": true,
+                "github.copilot.enable": {
+                    "*": true,
+                    "plaintext": true,
+                    "markdown": true,
+                    "yaml": true,
+                    "python": true
+                }
             }
         }
     },
